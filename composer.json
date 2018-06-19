@@ -1,0 +1,22 @@
+{
+    "name": "vendor/achachi-x",
+    "description": "Description of project AchachiX.",
+    "authors": [
+        {
+            "name": "davidcallizaya",
+            "email": "your@email.here"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+          "Achachi\\": "src/Achachi/"
+        },
+        "files": [
+            "src/global.php"
+        ]
+    },
+    "require": {
+        "google/apiclient": "^2.0",
+        "phpdocumentor/reflection-docblock": "^3.3"
+    }
+}
