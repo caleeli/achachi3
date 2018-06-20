@@ -1,0 +1,10 @@
+<?php
+function connection($db = 'test', $host = 'localhost', $username = 'root', $password = '')
+{
+    return new PDO("mysql:dbname=$db;host=$host", $username, $password);
+}
+function query (PDO $conn) {
+    return implode("\n", array_map(function($__item) {
+        return implode("\t", $__item);
+    }, $conn->query($query)->fetchAll(PDO::FETCH_NUM)));
+}
