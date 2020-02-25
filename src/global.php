@@ -1,4 +1,5 @@
 <?php
+use function GuzzleHttp\json_encode;
 
 function connection($db = 'test', $host = '127.0.0.1', $username = 'root', $password = '')
 {
@@ -28,7 +29,9 @@ function filterLines($filter, $vector)
 {
     $res = [];
     foreach ($vector as $row) {
-        if (strpos($row, $filter) !== false) $res[] = $row;
+        if (strpos($row, $filter) !== false) {
+            $res[] = $row;
+        }
     }
     return $res;
 }
@@ -36,18 +39,28 @@ function filterLines($filter, $vector)
 function readTCV($filename)
 {
     $lines = explode("\n", file_get_contents($filename));
-    array_walk($lines,
-               function (&$line) {
-        $columns = explode("\t", $line);
-        //var_dump($columns);die;
-        array_walk($columns,
-                   function (&$column) {
-            $column = substr($column, 0, 1) === '"' && substr($column, -1, 1) === '"' ? str_replace('""', '"',
-                                                                                                    substr($column, 1,
-                                                                                                           -1)) : $column;
-        });
-        $line = $columns;
-    });
+    array_walk(
+        $lines,
+        function (&$line) {
+            $columns = explode("\t", $line);
+            //var_dump($columns);die;
+            array_walk(
+                $columns,
+                function (&$column) {
+                    $column = substr($column, 0, 1) === '"' && substr($column, -1, 1) === '"' ? str_replace(
+                        '""',
+                        '"',
+                        substr(
+                            $column,
+                            1,
+                            -1
+                                                                                                    )
+            ) : $column;
+                }
+        );
+            $line = $columns;
+        }
+    );
     return $lines;
 }
 
@@ -149,13 +162,15 @@ function nano2($file, $target)
 function nano2component($type, $data, $target)
 {
     $filename = uniqid('output/') . '.xml';
-    file_put_contents($filename,
-                      '<?xml version="1.0" encoding="UTF-8"?>
+    file_put_contents(
+        $filename,
+        '<?xml version="1.0" encoding="UTF-8"?>
     <root xmlns:v-bind="http://nano.com/vue">
     <script type="' . $type . '">
     ' . json_encode($data) . '
     </script>
-    </root>');
+    </root>'
+    );
     $exitCode = nano2($filename, $target);
     if ($exitCode == 0) {
         //exit without errors
@@ -193,8 +208,12 @@ function findClasses($path, $namespace, &$res = [])
 
 function drawio_Interface(DOMDocument $dom, $name, $stereotype = 'interface', $x = null, $y = null)
 {
-    if (!isset($x)) $x = random_int(0, 400);
-    if (!isset($y)) $y = random_int(0, 400);
+    if (!isset($x)) {
+        $x = random_int(0, 400);
+    }
+    if (!isset($y)) {
+        $y = random_int(0, 400);
+    }
     $xml = '<mxCell id="' . uniqid() . '" value="«' . $stereotype . '»&lt;br style=&quot;font-size: 12px;&quot;&gt;&lt;b style=&quot;font-size: 12px;&quot;&gt;' . $name . '&lt;/b&gt;" style="html=1;shadow=0;comic=0;strokeColor=#000000;strokeWidth=1;fillColor=#FFFFFF;gradientColor=none;fontSize=12;fontColor=#000000;align=center;" vertex="1" parent="1">
         <mxGeometry x="' . $x . '" y="' . $y . '" width="110" height="50" as="geometry"/>
     </mxCell>';
@@ -214,9 +233,9 @@ function drawio_Relationship(DOMDocument $dom, $source, $target)
 }
 
 /**
- * 
+ *
  * @param string $url
- * 
+ *
  * @return DomDocument
  */
 function loadHTML($url)
@@ -234,7 +253,7 @@ function eachXpath(DOMNode $node, $query, $callback)
     $xpath = new DOMXPath($dom);
     $ns = $dom->documentElement->namespaceURI;
     if ($ns) {
-        $xpath->registerNamespace("ns", $ns);
+        $xpath->registerNamespace('ns', $ns);
     }
     $nodes = $node === $dom ? $xpath->query($query) : $xpath->query($query, $node);
     if ($nodes) {
@@ -247,15 +266,18 @@ function eachXpath(DOMNode $node, $query, $callback)
 function domGetNextElement(DOMElement $element, $query, $callback)
 {
     $first = true;
-    eachXpath($element->ownerDocument, $query,
-              function (DOMElement $node) use ($element, $query, $callback, &$first) {
-        if ($node->getLineNo() >= $element->getLineNo()) {
-            if ($first) {
-                $callback($node);
-                $first = false;
+    eachXpath(
+        $element->ownerDocument,
+        $query,
+        function (DOMElement $node) use ($element, $query, $callback, &$first) {
+            if ($node->getLineNo() >= $element->getLineNo()) {
+                if ($first) {
+                    $callback($node);
+                    $first = false;
+                }
             }
         }
-    });
+    );
 }
 
 /**
@@ -267,6 +289,9 @@ function domGetNextElement(DOMElement $element, $query, $callback)
  */
 function nbLogError($error, $filename, $line)
 {
+    if (strpos($filename, '/vendor/')) {
+        return;
+    }
     echo "$error in $filename on line $line\n";
 }
 
@@ -359,7 +384,7 @@ function achachiGDrive($callback)
 
 function googleExport($path, $mime = 'text/html', $callback = null)
 {
-    $drive = achachiGDrive("http://localhost/AchachiX/" . basename(__FILE__));
+    $drive = achachiGDrive('http://localhost/AchachiX/' . basename(__FILE__));
     $file = $drive->findPath($path);
     echo '<b><u>', $file->name, "</b></u><br>\n";
     $content = $drive->export($file, $mime);
@@ -385,9 +410,87 @@ function unzip($file, $path)
 {
     $zip = new ZipArchive;
     $res = $zip->open($file);
-    if ($res === TRUE) {
+    if ($res === true) {
         // extract it to the path we determined above
         $zip->extractTo($path);
         $zip->close();
     }
+}
+
+function diffImages($image1, $image2)
+{
+    if ($image1 === $image2) {
+        return 0;
+    }
+    $img1 = imagecreatefromstring(file_get_contents($image1));
+    $img2 = imagecreatefromstring(file_get_contents($image2));
+    $lum1 = normLumImage($img1);
+    $lum2 = normLumImage($img2);
+    $lum = 0;
+    foreach ($lum1 as $i => $l) {
+        $lum += ($lum2[$i] - $lum1[$i]) * ($lum2[$i] - $lum1[$i]);
+    }
+    $lum = sqrt($lum);
+    return $lum;
+}
+
+function normLumImage($img, $normSize = 32, $sens = 1)
+{
+    $width = imagesx($img);
+    $height = imagesy($img);
+    $wn = $width / $normSize;
+    $hn = $height / $normSize;
+    $lum = [];
+    $lumC = [];
+    for ($x = 0; $x < $width; $x++) {
+        for ($y = 0; $y < $height; $y++) {
+            $rgb = imagecolorat($img, $x, $y);
+            $r = ($rgb >> 16) & 0xFF;
+            $g = ($rgb >> 8) & 0xFF;
+            $b = $rgb & 0xFF;
+            $lumP = ($r + $r + $b + $g + $g + $g) / 6;
+            $xn = floor($x / $wn);
+            $yn = floor($y / $hn);
+            $index = $xn + $yn * $normSize;
+            @$lumC[$index]++;
+            @$lum[$index] += $lumP;
+        }
+    }
+    foreach ($lum as $index => $l) {
+        $lum[$index] = round($l / $lumC[$index] * $sens);
+    }
+    return $lum;
+}
+
+function indexImage($image)
+{
+    $img = imagecreatefromstring(file_get_contents_cached($image));
+    //return implode(',', normLumImage($img, 8, 0.01));
+    $factor = 0.5;
+    $cc = ceil(256 * $factor);
+    $lum = normLumImage($img, 2, $factor);
+    $index = 0;
+    $coef = 1;
+    foreach ($lum as $l) {
+        $index += $l * $coef;
+        $coef *= $cc;
+    }
+    return $index;
+}
+
+function file_get_contents_cached($url)
+{
+    $md5 = md5($url);
+    if (!file_exists('output/' . $md5)) {
+        file_put_contents('output/' . $md5, file_get_contents($url));
+    }
+    return file_get_contents('output/' . $md5);
+}
+
+function cached($md5, $callable)
+{
+    if (!file_exists('output/' . $md5)) {
+        file_put_contents('output/' . $md5, serialize($callable()));
+    }
+    return unserialize(file_get_contents('output/' . $md5));
 }

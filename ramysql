@@ -1,0 +1,53 @@
+#!/bin/sh
+
+ramfs_size_mb=500
+#mount_point=/Applications/XAMPP/xamppfiles/var/mysql
+#base_data=/Applications/XAMPP/xamppfiles/var/mysqlZERO
+mount_point=/usr/local/var/mysql
+base_data=/usr/local/var/mysqlZERO
+
+# STOP MYSQL
+  #sudo /Applications/XAMPP/xamppfiles/xampp stopmysql
+  sudo mysql.server stop
+
+# UMOUNT RAM DISK
+  umount ${mount_point}
+
+# MOUNT RAM DISK
+  ramfs_size_sectors=$((${ramfs_size_mb}*1024*1024/512))
+  ramdisk_dev=`hdid -nomount ram://${ramfs_size_sectors}`
+
+  newfs_hfs -v 'ram disk' ${ramdisk_dev}
+  mkdir -p ${mount_point}
+  mount -o noatime -t hfs ${ramdisk_dev} ${mount_point}
+
+  echo "remove with:"
+  echo "umount ${mount_point}"
+  echo "diskutil eject ${ramdisk_dev}"
+
+# COPY INITIAL STATE
+  sudo cp -R ${base_data}/* ${mount_point}/
+  sudo chown -R _mysql:_mysql ${mount_point}
+
+# START MYSQL
+  #sudo /Applications/XAMPP/xamppfiles/xampp startmysql
+  sudo mysql.server start
+
+
+
+# ==> /usr/local/Cellar/mariadb/10.3.7/bin/mysql_install_db --verbose --user=davidcallizaya --basedir=/usr/local/Cellar/mariadb/10.3.7 --datadir=/usr/local/var/mysql --tmpdir=/tmp
+# ==> Caveats
+# A "/etc/my.cnf" from another install may interfere with a Homebrew-built
+# server starting up correctly.
+# 
+# MySQL is configured to only allow connections from localhost by default
+# 
+# To connect:
+#     mysql -uroot
+# 
+# To have launchd start mariadb now and restart at login:
+#   brew services start mariadb
+# Or, if you don't want/need a background service you can just run:
+#   mysql.server start
+# ==> Summary
+# 🍺  /usr/local/Cellar/mariadb/10.3.7: 652 files, 174.3MB

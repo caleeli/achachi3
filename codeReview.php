@@ -2,10 +2,15 @@
 require 'vendor/autoload.php';
 
 /* @var $loader Composer\Autoload\ClassLoader */
-$project = '/Users/davidcallizaya/NetBeansProjects/processmaker';
-$baseBranch = 'origin/release/4.0.0';
-$project = '/Users/davidcallizaya/NetBeansProjects/nayra';
+$project = '/Users/davidcallizaya/Netbeans/nayra';
+//$project = '/Users/davidcallizaya/Netbeans/audit-extjs';
+//$project = '/Users/davidcallizaya/Netbeans/bpm';
 $baseBranch = 'origin/master';
+//$baseBranch = 'origin/develop';
+
+//define('CHECK_INTERFACE_DECLARATIONS', false);
+define('CHECK_INTERFACE_DECLARATIONS', true);
+
 $loader = addComposerLoader($project . '/vendor/autoload.php');
 
 function find($regexp, $path, $filter, $except)
@@ -42,23 +47,10 @@ function findInList($regexp, $list)
     }
 }
 $map = $loader->getClassMap();
-array_walk($map,
-           function ($filename, $class) use ($project, $baseBranch) {
+array_walk($map, function ($filename, $class) use ($project, $baseBranch) {
     /* @var $method \ReflectionMethod */
     if (!(
-        strpos($class, 'ProcessMaker\\') === 0
-        && strpos($class, 'ProcessMaker\Util') !== 0
-        && strpos($class, 'ProcessMaker\Services') !== 0
-        && strpos($class, 'ProcessMaker\Project') !== 0
-        && strpos($class, 'ProcessMaker\Plugins') !== 0
-        && strpos($class, 'ProcessMaker\Importer') !== 0
-        && strpos($class, 'ProcessMaker\Exporter') !== 0
-        && strpos($class, 'ProcessMaker\Core') !== 0
-        && strpos($class, 'ProcessMaker\Console') !== 0
-        && strpos($class, 'ProcessMaker\BusinessModel') !== 0
-        && strpos($class, 'ProcessMaker\Application') !== 0
-        && strpos($class, 'ProcessMaker\Policies\AccessControl') !== 0
-        && strpos($class, 'ProcessMaker\Policies\ControlUnderUpdating') !== 0
+        strpos($class, 'ProcessMaker\\') === 0 && strpos($class, 'ProcessMaker\Util') !== 0 && strpos($class, 'ProcessMaker\Services') !== 0 && strpos($class, 'ProcessMaker\Project') !== 0 && strpos($class, 'ProcessMaker\Plugins') !== 0 && strpos($class, 'ProcessMaker\Importer') !== 0 && strpos($class, 'ProcessMaker\Exporter') !== 0 && strpos($class, 'ProcessMaker\Core') !== 0 && strpos($class, 'ProcessMaker\Console') !== 0 && strpos($class, 'ProcessMaker\BusinessModel') !== 0 && strpos($class, 'ProcessMaker\Application') !== 0 && strpos($class, 'ProcessMaker\Policies\AccessControl') !== 0 && strpos($class, 'ProcessMaker\Policies\ControlUnderUpdating') !== 0
         )) {
         return;
     }
@@ -73,8 +65,7 @@ array_walk($map,
     foreach ($reflectionClass->getMethods() as $method) {
         $docComment = $method->getDocComment();
         if (empty($docComment)) {
-            nbLogError("Missing method " . $method->getName() . " doc", realpath($method->getFileName()),
-                                                                                 $method->getStartLine());
+            nbLogError("Missing method " . $method->getName() . " doc", realpath($method->getFileName()), $method->getStartLine());
         }
     }
 });
@@ -89,13 +80,14 @@ array_walk($map,
 function checkUseOfClasses(array $list, array $classes)
 {
     foreach ($list as $filename) {
-        if (substr($filename, -4) !== '.php') continue;
-        if (substr($filename, -14) === 'routes/api.php') continue;
+        if (substr($filename, -4) !== '.php')
+            continue;
+        if (substr($filename, -14) === 'routes/api.php')
+            continue;
         $source = file_get_contents($filename);
         foreach ($classes as $class => $path) {
             $classTC = strpos($class, '\\') === false ? '\\' . $class : $class;
-            $regexp = '/^((?!use |@see |@param |@return ).)*' . (substr($classTC, 0, 1) === '\\' ? '' : '\\?') . preg_quote($classTC,
-                                                                                                                            '/') . '\b.*$/m';
+            $regexp = '/^((?!use |@see |@param |@return ).)*' . (substr($classTC, 0, 1) === '\\' ? '' : '\\?') . preg_quote($classTC, '/') . '\b.*$/m';
             if (preg_match_all($regexp, $source, $matches, PREG_OFFSET_CAPTURE)) {
                 foreach ($matches[0] as $match) {
                     $line = substr_count(substr($source, 0, $match[1]), "\n") + 1;
@@ -110,8 +102,10 @@ function checkUseOfClasses(array $list, array $classes)
 function checkUseOrder(array $list)
 {
     foreach ($list as $filename) {
-        if (substr($filename, -4) !== '.php') continue;
-        if (substr($filename, -14) === 'routes/api.php') continue;
+        if (substr($filename, -4) !== '.php')
+            continue;
+        if (substr($filename, -14) === 'routes/api.php')
+            continue;
         $source = file_get_contents($filename);
         $regexp = '/^use\s+(.+);$/m';
         $uses = [];
@@ -132,25 +126,48 @@ function checkUseOrder(array $list)
 function checkDocumentation(array $list)
 {
     foreach ($list as $filename) {
-        if (substr($filename, -4) !== '.php') continue;
+        if (substr($filename, -4) !== '.php')
+            continue;
         $source = file_get_contents($filename);
         $regexp = '/^namespace\s+(.+);$/m';
-        if (!preg_match($regexp, $source, $match)) continue;
+        if (!preg_match($regexp, $source, $match))
+            continue;
         $namespace = $match[1];
         $className = '\\' . $namespace . '\\' . basename($filename, '.php');
         //$reflection = new ReflectionParameter($className);
         $reflection = new ReflectionClass($className);
         checkDoc($reflection, $list, null);
+        $sourceLines = explode("\n", $source);
         foreach ($reflection->getMethods() as $method) {
             checkDoc($method, $list, $reflection);
+            if ($method->getFileName() === $filename) {
+                checkCyclomaticComplexity($method, $list, $reflection, $sourceLines);
+            }
         }
+    }
+}
+
+function checkCyclomaticComplexity(ReflectionMethod $reflection, $list, ReflectionClass $owner = null, $sourceLines)
+{
+    $code = '';
+    for ($i = $reflection->getStartLine(), $l = $reflection->getEndLine(); $i < $l; $i++) {
+        $code .= $i . ': ' . $sourceLines[$i] . "\n";
+    }
+    $tokens = token_get_all('<?php ' . $code);
+    $cc = 1;
+    foreach ($tokens as $token) {
+        $cc += (is_array($token) && ($token[1] === 'if' || $token[1] === 'else' || $token[1] === 'for' || $token[1] === 'while' || $token[1] === 'case')) ? 1 : 0;
+    }
+    if ($cc > 10) {
+        nbLogError("High cyclomatic complexity of " . $reflection->getName() . " in ", $reflection->getFileName(), $reflection->getStartLine());
     }
 }
 
 function checkDoc(Reflector $reflection, $list, ReflectionClass $owner = null)
 {
     $filename = $reflection->getFileName();
-    if (!in_array($filename, $list)) return;
+    if (!in_array($filename, $list))
+        return;
     $line = $reflection->getStartLine();
     $doc = trim(preg_replace('/^\s+\*\s?/m', '', substr($reflection->getDocComment(), 4, -4)));
     if (empty($doc)) {
@@ -160,8 +177,7 @@ function checkDoc(Reflector $reflection, $list, ReflectionClass $owner = null)
         /* @var $method ReflectionMethod */
         /* @var $reflection ReflectionMethod */
         /* @var $interface ReflectionClass */
-        if ($reflection->getName() !== '__construct' && $reflection->isPublic() && $owner && $owner->isInstantiable()
-            && !$owner->isSubclassOf('\PHPUnit\Framework\TestCase')) {
+        if ($reflection->getName() !== '__construct' && $reflection->isPublic() && $owner && $owner->isInstantiable() && !$owner->isSubclassOf('\PHPUnit\Framework\TestCase')) {
             //Verifica que el metodo esta declarado en una interfaz
             $foundDeclaration = null;
             foreach ($owner->getInterfaces() as $interface) {
@@ -170,25 +186,22 @@ function checkDoc(Reflector $reflection, $list, ReflectionClass $owner = null)
                     break;
                 }
             }
-            if (!$foundDeclaration) {
+            if (CHECK_INTERFACE_DECLARATIONS && !$foundDeclaration) {
                 nbLogError("Missing declaration of " . $reflection->getName() . " in interface ", $filename, $line);
-                nbLogError("Missing declaration of " . $reflection->getName() . " in interface " . $owner->getName(),
-                           $owner->getFileName(), $owner->getStartLine());
+                nbLogError("Missing declaration of " . $reflection->getName() . " in interface " . $owner->getName(), $owner->getFileName(), $owner->getStartLine());
             }
         }
         /* @var $parameter ReflectionParameter */
         foreach ($reflection->getParameters() as $parameter) {
             $name = ($parameter->isVariadic() ? '\.\.\.' : '') . preg_quote('$' . $parameter->getName(), '/');
-            $class = $parameter->getType() && strpos($parameter->getType(), '\\') !== false ? '\\' . $parameter->getType()
-                    : $parameter->getType();
+            $class = $parameter->getType() && strpos($parameter->getType(), '\\') !== false ? '\\' . $parameter->getType() : $parameter->getType();
             $type = $class ?
                 '(' . preg_quote($class, '/') . '|' . preg_quote(basename(str_replace('\\', '/', $class)), '/') . ')'
                 . ($parameter->isDefaultValueAvailable() && $parameter->getDefaultValue() === null ? '\|null' : '') : '\w+';
             $regexp = '@param ' . $type . ' ' . $name;
             if (!preg_match("/$regexp/", $doc)) {
                 nbLogError("Wrong parameters ", $filename, $line);
-                echo '@param ' . $class . ($parameter->isDefaultValueAvailable() && $parameter->getDefaultValue() === null
-                        ? '|null' : '') . ' ' . ($parameter->isVariadic() ? '\.\.\.' : '') . '$' . $parameter->getName(), "\n";
+                echo '@param ' . $class . ($parameter->isDefaultValueAvailable() && $parameter->getDefaultValue() === null ? '|null' : '') . ' ' . ($parameter->isVariadic() ? '\.\.\.' : '') . '$' . $parameter->getName(), "\n";
             }
         }
     }
@@ -197,7 +210,8 @@ function checkDoc(Reflector $reflection, $list, ReflectionClass $owner = null)
 function checkEndLine(array $list)
 {
     foreach ($list as $filename) {
-        if (!is_file($filename)) continue;
+        if (!is_file($filename))
+            continue;
         $source = file_get_contents($filename);
         if (substr($source, -1, 1) !== "\n") {
             $line = substr_count($source, "\n") + 1;
@@ -206,6 +220,17 @@ function checkEndLine(array $list)
     }
 }
 
+/**
+ *
+ * @param ReflectionMethod $method
+ * @return type
+ */
+function getMethodThrows(ReflectionMethod $method)
+{
+    $source = explode("\n", file_get_contents($method->getFileName()));
+    $res = array_slice($source, $method->getStartLine() - 1, $method->getEndLine() - $method->getStartLine() + 1);
+    return implode("\n", $res);
+}
 //checkea @param type
 findInList('/@param\s+type|@return\s+type/', gitGetChangedFiles($project, $baseBranch));
 
