@@ -2,7 +2,7 @@
 require 'vendor/autoload.php';
 
 /* @var $loader Composer\Autoload\ClassLoader */
-$project = '/Users/davidcallizaya/Netbeans/nayra';
+$project = '/home/david/workspace/nayra';
 //$project = '/Users/davidcallizaya/Netbeans/audit-extjs';
 //$project = '/Users/davidcallizaya/Netbeans/bpm';
 $baseBranch = 'origin/master';
@@ -36,6 +36,7 @@ function find($regexp, $path, $filter, $except)
 function findInList($regexp, $list)
 {
     foreach ($list as $filename) {
+        if (!is_file($filename)) continue;
         $content = file_get_contents($filename);
         if (preg_match_all($regexp, $content, $matches, PREG_OFFSET_CAPTURE)) {
             foreach ($matches[0] as $match) {
